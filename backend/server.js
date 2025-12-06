@@ -10,15 +10,12 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const db = require("../backend/models");
-if (db.roleExits(1)) {
-  //Don't drop database
-  db.sequelize.sync();
-} else {
-  //Drop and re-sync db.
-  db.sequelize.sync({ force: true }).then(() => {
-    db.seedRoles();
-  });
-}
+
+db.sequelize.sync({ alter: true }).then(() => {  // crée la table si besoin
+  console.log("Tables créées ou modifiées si nécessaire");
+  db.seedRoles();  // ajoute les rôles initiaux
+});
+
 require("../backend/routes/auth.routes")(app);
 require("../backend/routes/user.routes")(app);
 require("../backend/routes/item.routes")(app);
