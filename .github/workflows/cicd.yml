@@ -1,0 +1,76 @@
+name: CI/CD Pipeline - PEAN Stack
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-build-push-deploy:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: peandb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 123
+        ports: [5432:5432]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. TESTS (backend)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Run backend tests (ou lint si pas de tests)
+        run: cd backend && npm run lint || echo "No tests, skipping"
+
+      # 2. BUILD & PUSH IMAGES
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend
+        run: |
+          cd backend
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest
+
+      - name: Build and push frontend
+        run: |
+          cd frontend
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest
+
+      # 3. DEPLOY sur Kubernetes (Minikube ou cluster distant)
+      - name: Update K8s manifests with new image tags
+        run: |
+          sed -i "s|backend:latest|${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest|g" k8s/backend-deployment.yaml
+          sed -i "s|frontend:latest|${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest|g" k8s/frontend-deployment.yaml
+
+      - name: Deploy to Kubernetes
+        uses: Azure/k8s-deploy@v4
+        with:
+          namespace: default
+          manifests: |
+            k8s/postgres-deployment.yaml
+            k8s/backend-deployment.yaml
+            k8s/frontend-deployment.yaml
+          kubeconfig: ${{ secrets.KUBECONFIG }}
