@@ -17,11 +17,11 @@ spec:
           image: postgres:15
           env:
             - name: POSTGRES_DB
-              value: myapp
+              value: peandb
             - name: POSTGRES_USER
               value: postgres
             - name: POSTGRES_PASSWORD
-              value: secret
+              value: "123"
           ports:
             - containerPort: 5432
           volumeMounts:
