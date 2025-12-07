@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: monem3/pean-frontend:latest
+          image: pean-frontend:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 80
