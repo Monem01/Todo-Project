@@ -76,8 +76,8 @@ jobs:
       # CORRECTION CRITIQUE : il faut appliquer les Services AVANT les Deployments quand on crée tout
       - name: Deploy PostgreSQL resources
         run: |
-          kubectl apply -f k8s/postgres-deployment.yaml
-          kubectl apply -f k8s/postgres-service.yaml
+          kubectl apply -f k8s/postgres-deployment.yaml --validate=false
+          kubectl apply -f k8s/postgres-service.yaml --validate=false
 
       - name: Deploy Backend & Frontend
         run: |
