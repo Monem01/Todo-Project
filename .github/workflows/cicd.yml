@@ -79,7 +79,11 @@ jobs:
           echo "===== BACKEND LOGS ====="
           kubectl logs -l app=backend --tail=100
 
-      # ✅ ATTENTE AVEC TIMEOUT + DEBUG SI ECHEC
+      - name: Wait for PostgreSQL
+        run: |
+          kubectl rollout status deployment/postgres --timeout=180s
+          
+        # ✅ ATTENTE AVEC TIMEOUT + DEBUG SI ECHEC
       - name: Wait for rollout
         run: |
           kubectl rollout status deployment/backend --timeout=300s || true
