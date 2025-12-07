@@ -60,17 +60,26 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest
 
       # 3. DEPLOY sur Kubernetes (Minikube ou cluster distant)
-      - name: Update K8s manifests with new image tags
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubeconfig
         run: |
-          sed -i "s|backend:latest|${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest|g" k8s/backend-deployment.yaml
-          sed -i "s|frontend:latest|${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest|g" k8s/frontend-deployment.yaml
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Update images in manifests
+        run: |
+          sed -i "s|pean-backend:latest|${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest|g" k8s/backend-deployment.yaml
+          sed -i "s|pean-frontend:latest|${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest|g" k8s/frontend-deployment.yaml
 
       - name: Deploy to Kubernetes
-        uses: Azure/k8s-deploy@v4
-        with:
-          namespace: default
-          manifests: |
-            k8s/postgres-deployment.yaml
-            k8s/backend-deployment.yaml
-            k8s/frontend-deployment.yaml
-          kubeconfig: ${{ secrets.KUBECONFIG }}
+        run: |
+          kubectl apply -f k8s/postgres-deployment.yaml
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl rollout status deployment/backend --timeout=120s
+          kubectl rollout status deployment/frontend --timeout=120s
