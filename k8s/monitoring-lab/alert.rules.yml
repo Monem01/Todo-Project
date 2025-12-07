@@ -1,0 +1,11 @@
+groups:
+- name: example
+  rules:
+  - alert: HighCPU
+    expr: node_cpu_seconds_total{mode="idle"} < 20
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "CPU usage is high"
+      description: "CPU usage is > 80% for more than 1 minute."
