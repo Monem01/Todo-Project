@@ -12,10 +12,19 @@ spec:
       labels:
         app: backend
     spec:
+
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done;
+
       containers:
         - name: backend
           image: monem3/pean-backend:latest
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           env:
@@ -33,33 +42,3 @@ spec:
               value: postgres://postgres:123@postgres:5432/peandb
             - name: NODE_ENV
               value: production
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 3000
-            initialDelaySeconds: 10
-            periodSeconds: 5
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 3000
-            initialDelaySeconds: 30
-            periodSeconds: 10
-
-      initContainers:
-        - name: wait-for-postgres
-          image: busybox:1.35
-          command: ['sh', '-c', "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend
-spec:
-  type: ClusterIP
-  ports:
-    - port: 3000
-      targetPort: 3000
-  selector:
-    app: backend
