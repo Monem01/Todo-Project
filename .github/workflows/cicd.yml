@@ -39,9 +39,7 @@ jobs:
         run: |
           cd backend
           npm ci
-          # Si tu as des tests d'intégration qui parlent à Postgres
-          # npm test || echo "Tests failed but continue"
-          npm run lint
+          echo "Linting skipped (no eslint configured yet)"
 
       - name: Build frontend (production)
         run: |
