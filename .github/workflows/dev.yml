@@ -35,10 +35,7 @@ jobs:
           npm run build
 
       - name: Deploy Frontend
-        run: |
-          cd frontend/dist/frontend
-          zip -r frontend.zip .
-          az webapp deploy --resource-group MP2L \
-            --name myapp-angular-frontend \
-            --src-path ./frontend.zip \
-            --type zip
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: myapp-angular-frontend
+          package: ./frontend
