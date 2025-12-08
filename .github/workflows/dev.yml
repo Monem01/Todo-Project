@@ -1,147 +1,48 @@
-name: CI/CD with Kind and AKS
+name: CI/CD Azure Web Apps
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install backend
-        run: cd backend && npm ci
-
-      - name: Build frontend
-        run: cd frontend && npm ci && npm run build
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build & push backend
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest ./backend
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest
-
-      - name: Build & push frontend
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest ./frontend
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest
-
-      - name: Install Kind
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
-          kind version
-
-      - name: Create Kind cluster
-        run: kind create cluster --name kind --wait 5m
-
-      - name: Load images into Kind
-        run: |
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest pean-backend:latest
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest pean-frontend:latest
-          kind load docker-image pean-backend:latest
-          kind load docker-image pean-frontend:latest
-
-      - name: Deploy PostgreSQL
-        run: kubectl apply -f k8s/postgres-deployment.yaml && kubectl apply -f k8s/postgres-service.yaml
-
-      - name: Deploy Backend & Frontend
-        run: |
-          kubectl apply -f k8s/backend-deployment.yaml
-          kubectl apply -f k8s/backend-service.yaml
-          kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-service.yaml
-
-      # ✅ DEBUG AVANT LA VÉRIF DU ROLLOUT
-      - name: Debug before rollout
-        run: |
-          echo "===== PODS ====="
-          kubectl get pods -o wide
-          echo "===== DESCRIBE BACKEND ====="
-          kubectl describe pod -l app=backend
-          echo "===== BACKEND LOGS ====="
-          kubectl logs -l app=backend --tail=100
-
-      - name: Wait for PostgreSQL
-        run: |
-          kubectl rollout status deployment/postgres --timeout=180s
-
-      # ✅ ATTENTE AVEC TIMEOUT + DEBUG SI ECHEC
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/backend --timeout=300s || true
-          kubectl rollout status deployment/frontend --timeout=300s || true
-
-      - name: Final debug
-        if: always()
-        run: |
-          echo "===== FINAL POD STATUS ====="
-          kubectl get pods -o wide
-          echo "===== FINAL BACKEND LOGS ====="
-          kubectl logs -l app=backend --tail=100 || true
-
-      - name: Success
-        run: |
-          echo "TEST SUR KIND TERMINÉ"
-          kubectl get svc
-
-  deploy-to-aks:
-    runs-on: ubuntu-latest
-    needs: build-and-test  # Déploie seulement si le test Kind réussit
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v2  # Mise à jour vers v2 pour meilleure compatibilité
+      # 2️⃣ Login Azure avec Service Principal
+      - name: Login to Azure
+        uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: 'latest'
-
-      - name: Get AKS credentials
+      # ---------------- Backend ----------------
+      - name: Install backend dependencies
         run: |
-          az aks get-credentials --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_AKS_CLUSTER_NAME }} --overwrite-existing
+          cd backend
+          npm ci
 
-      - name: Deploy PostgreSQL to AKS
-        run: kubectl apply -f k8s/postgres-deployment.yaml && kubectl apply -f k8s/postgres-service.yaml
-
-      - name: Deploy Backend & Frontend to AKS
+      - name: Deploy Backend to Azure Web App
         run: |
-          kubectl apply -f k8s/backend-deployment.yaml
-          kubectl apply -f k8s/backend-service.yaml
-          kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-service.yaml
+          az webapp deploy --resource-group myapp-angular_group-b390 \
+            --name myapp-backend \
+            --src-path ./backend
 
-      - name: Wait for rollout on AKS
+      # ---------------- Frontend ----------------
+      - name: Install frontend dependencies
         run: |
-          kubectl rollout status deployment/postgres --timeout=180s
-          kubectl rollout status deployment/backend --timeout=300s
-          kubectl rollout status deployment/frontend --timeout=300s
+          cd frontend
+          npm ci
+          npm run build
 
-      - name: Debug AKS if failure
-        if: failure()
+      - name: Deploy Frontend to Azure Web App
         run: |
-          kubectl get pods -o wide
-          kubectl logs -l app=backend --tail=100 || true
-
-      - name: Get AKS services
-        run: kubectl get svc -o wide  # Pour voir les IPs externes
+          az webapp deploy --resource-group myapp-angular_group-b390 \
+            --name myapp-frontend \
+            --src-path ./frontend/dist/frontend
