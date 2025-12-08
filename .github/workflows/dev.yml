@@ -9,40 +9,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout du code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2️⃣ Login Azure
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # -------- Backend Node.js --------
-      - name: Install backend
-        run: |
-          cd backend
-          npm ci
-          zip -r backend.zip .
-
       - name: Deploy Backend
-        run: |
-          az webapp deploy --resource-group MP2L \
-            --name MP2LBackInstance \
-            --src-path ./backend/backend.zip \
-            --type zip
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: MP2LBackInstance
+          package: ./backend
+          # Azure exécutera npm install et npm start automatiquement
 
       # -------- Frontend Angular --------
-      - name: Install frontend
+      - name: Install frontend dependencies
         run: |
           cd frontend
           npm ci
           npm run build
-          cd dist/frontend
-          zip -r frontend.zip .
 
       - name: Deploy Frontend
-        run: |
-          az webapp deploy --resource-group MP2L \
-            --name myapp-angular-frontend \
-            --src-path ./frontend/dist/frontend/frontend.zip \
-            --type static
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: myapp-angular-frontend
+          package: ./frontend/dist/frontend
+          type: static
