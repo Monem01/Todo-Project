@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout du code
+      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -25,10 +25,9 @@ jobs:
         with:
           app-name: MP2LBackInstance
           package: ./backend
-          # Azure exécutera npm install et npm start automatiquement
 
       # -------- Frontend Angular --------
-      - name: Install frontend dependencies
+      - name: Build Frontend
         run: |
           cd frontend
           npm ci
@@ -38,4 +37,4 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: myapp-angular-frontend
-          package: ./frontend
+          package: ./frontend   # <-- tout le dossier frontend
