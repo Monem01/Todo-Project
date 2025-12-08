@@ -9,37 +9,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Login Azure via Service Principal
       - name: Login to Azure
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}  # JSON complet du SP
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # ---------------- Backend ----------------
-      - name: Install backend dependencies
+      # -------- Backend Node.js --------
+      - name: Install backend
         run: |
           cd backend
           npm ci
+          zip -r backend.zip .
 
-      - name: Deploy Backend to Azure Web App
+      - name: Deploy Backend
         run: |
           az webapp deploy --resource-group MP2L \
             --name MP2LBackInstance \
-            --src-path ./backend
+            --src-path ./backend/backend.zip \
+            --type zip
 
-      # ---------------- Frontend ----------------
-      - name: Install frontend dependencies
+      # -------- Frontend Angular --------
+      - name: Install frontend
         run: |
           cd frontend
           npm ci
           npm run build
+          cd dist/frontend
+          zip -r frontend.zip .
 
-      - name: Deploy Frontend to Azure Web App
+      - name: Deploy Frontend
         run: |
           az webapp deploy --resource-group MP2L \
             --name myapp-angular-frontend \
-            --src-path ./frontend/dist/frontend
+            --src-path ./frontend/dist/frontend/frontend.zip \
+            --type static
