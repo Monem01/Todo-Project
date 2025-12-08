@@ -38,5 +38,5 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: myapp-angular-frontend
-          package: ./frontend/dist/frontend
+          package: dist/frontend
           type: static
