@@ -27,7 +27,7 @@ jobs:
 
       - name: Deploy Backend to Azure Web App
         run: |
-          az webapp deploy --resource-group myapp-angular_group-b390 \
+          az webapp deploy --resource-group MP2L \
             --name MP2LBackInstance \
             --src-path ./backend
 
@@ -40,6 +40,6 @@ jobs:
 
       - name: Deploy Frontend to Azure Web App
         run: |
-          az webapp deploy --resource-group myapp-angular_group-b390 \
+          az webapp deploy --resource-group MP2L \
             --name myapp-angular-frontend \
             --src-path ./frontend/dist/frontend
