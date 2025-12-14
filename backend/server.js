@@ -24,3 +24,13 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
+
+app.get('/db-test', async (req, res) => {
+  try {
+    await pool.query('SELECT version()');
+    res.send('Connexion PostgreSQL OK ✅');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(err.message);
+  }
+});
