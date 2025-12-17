@@ -7,11 +7,17 @@ const app = express();
 // CORS
 var corsOptions = {
   origin: [
-    "http://localhost:4200",
-    "https://mp2lfrontinstance-gdd0dwe6ezgwf0dq.francecentral-01.azurewebsites.net"
+    "https://myapp-angular-frontend-hydveef9f5gcgyby.francecentral-01.azurewebsites.net",
+    "http://localhost:4200"
   ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
+
 app.use(cors(corsOptions));
+
+// Pour les pré‑requêtes OPTIONS 
+app.options("*", cors(corsOptions));
 
 
 // Body parser
