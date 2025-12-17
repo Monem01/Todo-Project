@@ -1,32 +1,81 @@
-name: CI/CD Kubernetes (Kind) + Azure Web Apps
+name: CI/CD Azure Web Apps
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build-and-deploy:
+
+  # =======================
+  # 1️⃣ DETECT CHANGES
+  # =======================
+  detect_changes:
     runs-on: ubuntu-latest
-
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
     steps:
-      # ================== CHECKOUT ==================
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ================== NODE ==================
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
         with:
-          node-version: '20'
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+
+  # =======================
+  # 2️⃣ BUILD FRONTEND
+  # =======================
+  build-and-push-frontend:
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.frontend == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push frontend image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest ./frontend
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest
+
+  # =======================
+  # 3️⃣ BUILD BACKEND
+  # =======================
+  build-and-push-backend:
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: Install backend deps
         run: cd backend && npm ci
 
-      - name: Build frontend
-        run: cd frontend && npm ci && npm run build
-
-      # ================== DOCKER ==================
-      - name: Login to Docker Hub
+      - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -37,67 +86,36 @@ jobs:
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest ./backend
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest
 
-      - name: Build & push frontend image
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest ./frontend
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest
+  # =======================
+  # 4️⃣ DEPLOY TO AZURE
+  # =======================
+  deploy-to-azure:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push-frontend
+      - build-and-push-backend
+    steps:
+      - uses: actions/checkout@v4
 
-      # ================== KUBERNETES (KIND) ==================
-      - name: Install Kind
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
-
-      - name: Create Kind cluster
-        run: kind create cluster --name kind --wait 5m
-
-      - name: Load images into Kind
-        run: |
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest pean-backend:latest
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest pean-frontend:latest
-          kind load docker-image pean-backend:latest
-          kind load docker-image pean-frontend:latest
-
-      - name: Deploy PostgreSQL (K8s)
-        run: |
-          kubectl apply -f k8s/postgres-deployment.yaml
-          kubectl apply -f k8s/postgres-service.yaml
-
-      - name: Deploy Backend & Frontend (K8s)
-        run: |
-          kubectl apply -f k8s/backend-deployment.yaml
-          kubectl apply -f k8s/backend-service.yaml
-          kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-service.yaml
-
-      - name: Wait for K8s rollout
-        run: |
-          kubectl rollout status deployment/postgres --timeout=180s
-          kubectl rollout status deployment/backend --timeout=300s
-          kubectl rollout status deployment/frontend --timeout=300s
-
-      # ================== AZURE ==================
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # -------- BACKEND AZURE --------
-      - name: Deploy Backend to Azure App Service
+      - name: Deploy Backend to Azure
         uses: azure/webapps-deploy@v2
         with:
           app-name: MP2LBackInstance
           package: ./backend
 
-      # -------- FRONTEND AZURE --------
-      - name: Deploy Frontend to Azure App Service
+      - name: Build frontend for Azure
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Deploy Frontend to Azure
         uses: azure/webapps-deploy@v2
         with:
           app-name: myapp-angular-frontend
-          package: ./frontend   
-
-      # ================== FINAL ==================
-      - name: Success
-        run: |
-          echo "CI/CD TERMINÉ : Kubernetes + Azure OK"
+          package: ./frontend
