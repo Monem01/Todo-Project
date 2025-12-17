@@ -5,7 +5,7 @@ module.exports = {
 	user: process.env.DB_USER,
 	password: process.env.DB_PASSWORD,
 	dialect: "postgres",
-	ssl: { rejectUnauthorized: false },
+	ssl: process.env.DB_SSL === "true" ? { require: true, rejectUnauthorized: false } : false,
 	pool: {
 		max: 5,
 		min: 0,
