@@ -108,6 +108,7 @@ jobs:
         with:
           app-name: MP2LBackInstance
           package: ./backend
+          startup-command: 'npm install && npm start'
 
       - name: Build frontend for Azure
         run: |
