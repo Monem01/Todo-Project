@@ -1,4 +1,4 @@
-name: CI/CD with Kind (Kubernetes in Docker)
+name: CI/CD Kubernetes (Kind) + Azure Web Apps
 
 on:
   push:
@@ -9,42 +9,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ================== CHECKOUT ==================
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ================== NODE ==================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install backend
+      - name: Install backend deps
         run: cd backend && npm ci
 
       - name: Build frontend
         run: cd frontend && npm ci && npm run build
 
+      # ================== DOCKER ==================
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & push backend
+      - name: Build & push backend image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest ./backend
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest
 
-      - name: Build & push frontend
+      - name: Build & push frontend image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest ./frontend
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest
 
+      # ================== KUBERNETES (KIND) ==================
       - name: Install Kind
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
-          kind version
 
       - name: Create Kind cluster
         run: kind create cluster --name kind --wait 5m
@@ -53,50 +56,48 @@ jobs:
         run: |
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/pean-backend:latest pean-backend:latest
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/pean-frontend:latest pean-frontend:latest
-
           kind load docker-image pean-backend:latest
           kind load docker-image pean-frontend:latest
 
-      
-      - name: Deploy PostgreSQL
-        run: kubectl apply -f k8s/postgres-deployment.yaml && kubectl apply -f k8s/postgres-service.yaml
+      - name: Deploy PostgreSQL (K8s)
+        run: |
+          kubectl apply -f k8s/postgres-deployment.yaml
+          kubectl apply -f k8s/postgres-service.yaml
 
-      - name: Deploy Backend & Frontend
+      - name: Deploy Backend & Frontend (K8s)
         run: |
           kubectl apply -f k8s/backend-deployment.yaml
           kubectl apply -f k8s/backend-service.yaml
           kubectl apply -f k8s/frontend-deployment.yaml
           kubectl apply -f k8s/frontend-service.yaml
 
-      # ✅ DEBUG AVANT LA VÉRIF DU ROLLOUT
-      - name: Debug before rollout
-        run: |
-          echo "===== PODS ====="
-          kubectl get pods -o wide
-          echo "===== DESCRIBE BACKEND ====="
-          kubectl describe pod -l app=backend
-          echo "===== BACKEND LOGS ====="
-          kubectl logs -l app=backend --tail=100
-
-      - name: Wait for PostgreSQL
+      - name: Wait for K8s rollout
         run: |
           kubectl rollout status deployment/postgres --timeout=180s
+          kubectl rollout status deployment/backend --timeout=300s
+          kubectl rollout status deployment/frontend --timeout=300s
 
-        # ✅ ATTENTE AVEC TIMEOUT + DEBUG SI ECHEC
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/backend --timeout=300s || true
-          kubectl rollout status deployment/frontend --timeout=300s || true
+      # ================== AZURE ==================
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Final debug
-        if: always()
-        run: |
-          echo "===== FINAL POD STATUS ====="
-          kubectl get pods -o wide
-          echo "===== FINAL BACKEND LOGS ====="
-          kubectl logs -l app=backend --tail=100 || true
+      # -------- BACKEND AZURE --------
+      - name: Deploy Backend to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: MP2LBackInstance
+          package: ./backend
 
+      # -------- FRONTEND AZURE --------
+      - name: Deploy Frontend to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: myapp-angular-frontend
+          package: ./frontend   
+
+      # ================== FINAL ==================
       - name: Success
         run: |
-          echo "DÉPLOIEMENT TERMINÉ"
-          kubectl get svc
+          echo "CI/CD TERMINÉ : Kubernetes + Azure OK"
