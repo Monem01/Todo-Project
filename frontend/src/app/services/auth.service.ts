@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { TokenStorageService } from '../services/token-storage.service';
-const AUTH_API = 'http://localhost:4000/api/auth/';
+const AUTH_API = 'https://mp2lbackinstance-gdd0dwe6ezgwf0dq.francecentral-01.azurewebsites.net/api/auth/';
 const httpOptions = {
   headers: new HttpHeaders({ 'Content-Type': 'application/json' })
 };

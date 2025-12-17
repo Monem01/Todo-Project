@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-const API_URL = 'http://localhost:4000/api';
+const API_URL = 'https://mp2lbackinstance-gdd0dwe6ezgwf0dq.francecentral-01.azurewebsites.net/api';
 const httpOptions = {
   headers: new HttpHeaders({ 'Content-Type': 'application/json' })
 };
