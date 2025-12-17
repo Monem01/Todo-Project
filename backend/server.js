@@ -9,7 +9,7 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const db = require("../backend/models");
+const db = require("./models");
 
 db.sequelize.sync({ alter: true }).then(() => {  // crée la table si besoin
   console.log("Tables créées ou modifiées si nécessaire");
