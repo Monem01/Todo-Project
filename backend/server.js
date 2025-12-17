@@ -5,7 +5,7 @@ const cors = require("cors");
 const app = express();
 
 // CORS
-var corsOptions = { origin: "http://localhost:4200" };
+var corsOptions = { origin: "https://myapp-angular-frontend-hydveef9f5gcgyby.francecentral-01.azurewebsites.net/" };
 app.use(cors(corsOptions));
 
 // Body parser
