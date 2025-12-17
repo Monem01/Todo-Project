@@ -15,12 +15,18 @@ services:
     ports:
       - "3000:3000"
 
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    network_mode: host
-    pid: "host"
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
     restart: unless-stopped
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
 
   alertmanager:
     image: prom/alertmanager
