@@ -16,9 +16,9 @@ db.sequelize.sync({ alter: true }).then(() => {  // crée la table si besoin
   db.seedRoles();  // ajoute les rôles initiaux
 });
 
-require("../backend/routes/auth.routes")(app);
-require("../backend/routes/user.routes")(app);
-require("../backend/routes/item.routes")(app);
+require("./routes/auth.routes")(app);
+require("./routes/user.routes")(app);
+require("./routes/item.routes")(app);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
