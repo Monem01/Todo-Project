@@ -11,4 +11,3 @@ scrape_configs:
     static_configs:
       - targets: ['cadvisor:8080']    # Nom du service Docker, port interne
 
-  # Vous pouvez supprimer ou commenter le job demo-app s'il est encore là
